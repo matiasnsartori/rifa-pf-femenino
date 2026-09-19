@@ -2302,16 +2302,20 @@ export async function updateSale(input: SaleInput): Promise<ActionResult> {
   }
 
   const supabase = await createServerSupabase();
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from("sales")
     .update({
       buyer_name: input.buyerName.trim(),
       buyer_phone: input.buyerPhone.trim() || null,
     })
-    .eq("number", input.saleNumber);
+    .eq("number", input.saleNumber)
+    .select("number");
 
   const saleError = toSaleError(error, input.saleNumber);
   if (saleError) return { ok: false, message: saleError.message };
+  if (!data?.length) {
+    return { ok: false, message: "No se pudo editar. Esa venta ya no es tuya o fue liberada." };
+  }
 
   refreshViews();
   return { ok: true };
@@ -2322,15 +2326,27 @@ export async function releaseSale(saleNumber: number): Promise<ActionResult> {
   if (!seller) return NOT_A_SELLER;
 
   const supabase = await createServerSupabase();
-  const { error } = await supabase.from("sales").delete().eq("number", saleNumber);
+  const { data, error } = await supabase
+    .from("sales")
+    .delete()
+    .eq("number", saleNumber)
+    .select("number");
 
   const saleError = toSaleError(error, saleNumber);
   if (saleError) return { ok: false, message: saleError.message };
+  if (!data?.length) {
+    return { ok: false, message: "No se pudo liberar. Esa venta ya no es tuya o fue liberada." };
+  }
 
   refreshViews();
   return { ok: true };
 }
 ```
+
+El `.select("number")` encadenado en `updateSale` y `releaseSale` no es cosmético. Sin él, cuando
+RLS filtra la fila, PostgREST no devuelve error: devuelve cero filas afectadas y la acción informa
+éxito. La UI cerraría el panel como si hubiera funcionado. Contar las filas devueltas es la única
+forma de distinguir "se hizo" de "no aplicó a nadie".
 
 - [ ] **Step 2: Escribir el test que falla**
 
@@ -2586,7 +2602,7 @@ Crear `app/panel/panel-board.tsx`:
 ```tsx
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { NumberGrid } from "@/components/number-grid";
 import { SaleDetail, type PanelSale } from "@/components/sale-detail";
@@ -2608,6 +2624,12 @@ export function PanelBoard({ sales, seller }: PanelBoardProps) {
   const [selected, setSelected] = useState<number | null>(null);
   const [mode, setMode] = useState<Mode>("detail");
   const [query, setQuery] = useState("");
+  const [actionError, setActionError] = useState<string | null>(null);
+  const sheetRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (selected !== null) sheetRef.current?.focus();
+  }, [selected]);
 
   useEffect(() => {
     const supabase = createBrowserSupabase();
@@ -2636,18 +2658,25 @@ export function PanelBoard({ sales, seller }: PanelBoardProps) {
     : undefined;
 
   function open(value: number) {
+    setActionError(null);
     setSelected(value);
     setMode(byNumber.has(value) ? "detail" : "create");
   }
 
   function close() {
+    setActionError(null);
     setSelected(null);
   }
 
   async function release() {
     if (selected === null) return;
     if (!window.confirm(`¿Liberar el número ${selected}? Se borra la venta.`)) return;
-    await releaseSale(selected);
+
+    const result = await releaseSale(selected);
+    if (!result.ok) {
+      setActionError(result.message ?? "No se pudo liberar el número.");
+      return;
+    }
     close();
   }
 
@@ -2681,7 +2710,38 @@ export function PanelBoard({ sales, seller }: PanelBoardProps) {
       )}
 
       {selected !== null && (
-        <div className="animate-rise fixed inset-x-0 bottom-0 z-10 rounded-t-3xl border-t border-border bg-card p-5 text-card-foreground shadow-2xl">
+        <div
+          ref={sheetRef}
+          role="dialog"
+          aria-modal="true"
+          aria-label={`Número ${selected}`}
+          tabIndex={-1}
+          onKeyDown={(event) => {
+            if (event.key === "Escape") close();
+          }}
+          className="animate-rise fixed inset-x-0 bottom-0 z-10 rounded-t-3xl border-t border-border bg-card p-5 text-card-foreground shadow-2xl focus-visible:outline-none"
+        >
+          {actionError && (
+            <p role="alert" className="mb-3 rounded-xl bg-muted p-3 text-sm text-muted-foreground">
+              {actionError}
+            </p>
+          )}
+
+          {mode !== "create" && !current && (
+            <div className="flex flex-col gap-3">
+              <p role="alert" className="text-sm">
+                El número {selected} fue liberado mientras lo mirabas.
+              </p>
+              <button
+                type="button"
+                onClick={close}
+                className="min-h-[44px] touch-manipulation rounded-xl border border-border px-4 font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              >
+                Cerrar
+              </button>
+            </div>
+          )}
+
           {mode === "create" && current && (
             <div className="flex flex-col gap-3">
               <p role="alert" className="rounded-xl bg-muted p-3 text-sm text-muted-foreground">
@@ -2756,7 +2816,7 @@ export default async function PanelPage() {
   if (!seller) redirect("/login");
 
   const supabase = await createServerSupabase();
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from("sales")
     .select("number, buyer_name, buyer_phone, seller_id, sold_at, sellers(display_name)")
     .order("number");
@@ -2776,7 +2836,14 @@ export default async function PanelPage() {
       <SiteHeader seller={seller} />
       <main className="mx-auto flex w-full max-w-4xl flex-col gap-4 px-4 py-6 pb-40">
         <h1 className="font-display text-3xl uppercase tracking-wide">Panel</h1>
-        <PanelBoard sales={sales} seller={seller} />
+        {error ? (
+          <p role="alert" className="rounded-2xl border border-border bg-card p-4">
+            No pudimos cargar las ventas. Actualizá la página antes de vender: sin esta información
+            no sabés qué números están tomados.
+          </p>
+        ) : (
+          <PanelBoard sales={sales} seller={seller} />
+        )}
       </main>
     </>
   );
