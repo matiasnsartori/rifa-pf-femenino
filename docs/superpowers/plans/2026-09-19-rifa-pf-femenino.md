@@ -918,6 +918,8 @@ En `package.json`, agregar a `scripts`:
 
 - [ ] **Step 2: Escribir el test que falla**
 
+`resetData()` no puede borrar todas las vendedoras: el trigger `guard_last_admin` aborta el statement al quedar cero admins, y entonces no borra ninguna. Por eso restaura primero al admin del seed y después borra solo los emails `@test.local`. Y como el admin del seed siempre existe, un admin de test nunca sería "el último" por sí solo: `makeSoleAdmin()` degrada al resto para que los dos tests de último-admin ejerciten el trigger de verdad.
+
 Crear `supabase/tests/rls.test.ts`:
 
 ```ts
@@ -938,6 +940,7 @@ const admin = createClient(url, serviceKey, { auth: { persistSession: false } })
 const anon = createClient(url, anonKey, { auth: { persistSession: false } });
 
 const PASSWORD = "rls-test-password";
+const SEED_ADMIN_EMAIL = "sartorinmatias@gmail.com";
 const createdUserIds: string[] = [];
 
 async function signInAs(email: string): Promise<SupabaseClient> {
@@ -957,10 +960,15 @@ async function signInAs(email: string): Promise<SupabaseClient> {
 
 async function resetData() {
   await admin.from("sales").delete().gte("number", 1);
-  await admin.from("sellers").delete().neq("email", "__none__");
+  await admin.from("sellers").update({ is_admin: true }).eq("email", SEED_ADMIN_EMAIL);
+  await admin.from("sellers").delete().like("email", "%@test.local");
   for (const id of createdUserIds.splice(0)) {
     await admin.auth.admin.deleteUser(id);
   }
+}
+
+async function makeSoleAdmin(sellerId: string) {
+  await admin.from("sellers").update({ is_admin: false }).neq("id", sellerId);
 }
 
 function unique(prefix: string) {
@@ -1120,6 +1128,7 @@ describe("privilege escalation", () => {
       .insert({ email, display_name: "Jefa", is_admin: true })
       .select()
       .single();
+    await makeSoleAdmin(soleAdmin.data!.id);
     const client = await signInAs(email);
 
     const { error } = await client
@@ -1139,6 +1148,7 @@ describe("privilege escalation", () => {
       .insert({ email, display_name: "Jefa", is_admin: true })
       .select()
       .single();
+    await makeSoleAdmin(soleAdmin.data!.id);
     const client = await signInAs(email);
 
     await client.from("sellers").delete().eq("id", soleAdmin.data!.id);
@@ -1163,7 +1173,7 @@ Expected: FAIL. Si el esquema de la Task 5 está bien aplicado los tests ya pasa
 - [ ] **Step 4: Correr el test y verificar que pasa**
 
 Run: `supabase db reset && npm run test:rls`
-Expected: PASS, 10 tests.
+Expected: PASS, 11 tests.
 
 - [ ] **Step 5: Commit**
 
@@ -1206,11 +1216,11 @@ NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=
 
 Crear `.env.local` con los valores locales que imprimió `supabase start` (`API URL` y `anon key`).
 
-Agregar a `.gitignore`:
+El `.gitignore` de create-next-app trae `.env*`, que también tapa `.env.example` y haría fallar su `git add`. Agregar a `.gitignore`:
 
 ```
+!.env.example
 .atl/
-.env.local
 supabase/.branches
 supabase/.temp
 ```
@@ -1883,7 +1893,11 @@ git commit -m "feat: tokens de diseno tema y pwa"
 
 Libre y vendido se distinguen por **color, borde y texto accesible**, nunca solo por color. Quien no distingue rojo de verde tiene que poder usar esto.
 
-- [ ] **Step 1: Escribir el test que falla**
+- [ ] **Step 1: Instalar `user-event` y escribir los tests que fallan**
+
+```bash
+npm install -D @testing-library/user-event
+```
 
 Crear `components/number-cell.test.tsx`:
 
@@ -1958,10 +1972,6 @@ Run: `npm test -- components/`
 Expected: FAIL — no se resuelven los imports de `./number-cell` y `./number-grid`.
 
 - [ ] **Step 3: Escribir la implementación mínima**
-
-```bash
-npm install -D @testing-library/user-event
-```
 
 Crear `components/number-cell.tsx`:
 
@@ -3203,7 +3213,7 @@ Run: `npm test && npm run typecheck && npm run build`
 Expected: todos los tests unitarios pasan, sin errores de tipos, build exitoso.
 
 Run: `supabase db reset && npm run test:rls`
-Expected: PASS, 10 tests.
+Expected: PASS, 11 tests.
 
 - [ ] **Step 8: Commit**
 
