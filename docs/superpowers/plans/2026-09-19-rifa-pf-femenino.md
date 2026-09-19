@@ -1587,6 +1587,11 @@ npm install next-themes
 
 Reemplazar el contenido completo de `app/globals.css`:
 
+Los valores de `--border` y del `--sold` oscuro están calculados, no elegidos a ojo. Un borde que
+delimita un control interactivo necesita 3:1 contra su fondo (WCAG 1.4.11) y los valores suaves
+que parecen elegantes en una maqueta rondan 1.5:1. En una grilla de 200 celdas leída al sol en un
+celular, el borde no es decoración: es lo que separa un número de otro.
+
 ```css
 @import "tailwindcss";
 
@@ -1603,7 +1608,7 @@ Reemplazar el contenido completo de `app/globals.css`:
   --accent-foreground: hsl(330 30% 12%);
   --muted: hsl(340 20% 92%);
   --muted-foreground: hsl(330 12% 34%);
-  --border: hsl(336 18% 80%);
+  --border: hsl(336 18% 55%);
   --ring: hsl(336 72% 34%);
   --free: hsl(158 64% 26%);
   --sold: hsl(330 10% 40%);
@@ -1623,10 +1628,10 @@ Reemplazar el contenido completo de `app/globals.css`:
   --accent-foreground: hsl(330 40% 8%);
   --muted: hsl(330 14% 16%);
   --muted-foreground: hsl(335 10% 72%);
-  --border: hsl(332 14% 24%);
+  --border: hsl(332 14% 43%);
   --ring: hsl(336 86% 68%);
   --free: hsl(152 60% 58%);
-  --sold: hsl(335 8% 52%);
+  --sold: hsl(335 8% 53%);
 }
 
 @theme inline {
