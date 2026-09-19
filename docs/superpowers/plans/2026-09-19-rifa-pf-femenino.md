@@ -961,15 +961,19 @@ Crear `supabase/tests/rls.test.ts`:
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
 
-const url = process.env.SUPABASE_URL ?? process.env.API_URL ?? "http://127.0.0.1:54321";
-const anonKey = process.env.SUPABASE_ANON_KEY ?? process.env.ANON_KEY;
-const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY ?? process.env.SERVICE_ROLE_KEY;
-
-if (!anonKey || !serviceKey) {
-  throw new Error(
-    'Faltan las claves locales. Exportalas con: eval "$(supabase status -o env | sed \'s/^/export /\')"',
-  );
+function requireEnv(...candidates: (string | undefined)[]): string {
+  const value = candidates.find(Boolean);
+  if (!value) {
+    throw new Error(
+      'Faltan las claves locales. Exportalas con: eval "$(supabase status -o env | sed \'s/^/export /\')"',
+    );
+  }
+  return value;
 }
+
+const url = process.env.SUPABASE_URL ?? process.env.API_URL ?? "http://127.0.0.1:54321";
+const anonKey = requireEnv(process.env.SUPABASE_ANON_KEY, process.env.ANON_KEY);
+const serviceKey = requireEnv(process.env.SUPABASE_SERVICE_ROLE_KEY, process.env.SERVICE_ROLE_KEY);
 
 const admin = createClient(url, serviceKey, { auth: { persistSession: false } });
 const anon = createClient(url, anonKey, { auth: { persistSession: false } });
@@ -1243,8 +1247,8 @@ Expected: FAIL. Si el esquema de la Task 5 está bien aplicado los tests ya pasa
 
 - [ ] **Step 5: Correr el test y verificar que pasa**
 
-Run: `supabase db reset && npm run test:rls`
-Expected: PASS, 12 tests.
+Run: `supabase db reset && npm run test:rls && npm run typecheck`
+Expected: PASS, 12 tests, y `tsc --noEmit` sin errores.
 
 - [ ] **Step 6: Commit**
 
@@ -1334,7 +1338,7 @@ export async function createServerSupabase() {
               cookieStore.set(name, value, options),
             );
           } catch {
-            // Server Component: las cookies las escribe el proxy.
+            // Server Component: cookies are refreshed by the proxy.
           }
         },
       },
