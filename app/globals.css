@@ -13,7 +13,7 @@
   --accent-foreground: hsl(330 30% 12%);
   --muted: hsl(340 20% 92%);
   --muted-foreground: hsl(330 12% 34%);
-  --border: hsl(336 18% 80%);
+  --border: hsl(336 18% 55%);
   --ring: hsl(336 72% 34%);
   --free: hsl(158 64% 26%);
   --sold: hsl(330 10% 40%);
@@ -33,10 +33,10 @@
   --accent-foreground: hsl(330 40% 8%);
   --muted: hsl(330 14% 16%);
   --muted-foreground: hsl(335 10% 72%);
-  --border: hsl(332 14% 24%);
+  --border: hsl(332 14% 43%);
   --ring: hsl(336 86% 68%);
   --free: hsl(152 60% 58%);
-  --sold: hsl(335 8% 52%);
+  --sold: hsl(335 8% 53%);
 }
 
 @theme inline {
