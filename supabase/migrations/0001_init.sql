@@ -156,6 +156,10 @@ create view public.public_numbers
 with (security_invoker = off)
 as select number from public.sales;
 
+revoke all on public.public_numbers from anon, authenticated;
 grant select on public.public_numbers to anon, authenticated;
+
+revoke all on public.sellers from anon;
+revoke all on public.sales from anon;
 
 alter publication supabase_realtime add table public.sales;
