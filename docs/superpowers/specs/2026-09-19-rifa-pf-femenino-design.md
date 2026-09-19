@@ -174,8 +174,10 @@ falsa seguridad.
 
 ### 5.1 `/` — grilla pública
 
-Grilla de 200 celdas. Libre y vendido se distinguen por **color + forma + texto**, nunca solo
-por color. Contador arriba: `137 libres · 63 vendidos`. Sin nombres ni teléfonos.
+Grilla de 200 celdas. Libre y vendido se distinguen por **color + tachado + texto accesible**,
+nunca solo por color: el tachado es la señal de forma y el `aria-label` dice la palabra "libre" o
+"vendido". El grosor del borde es el mismo en los dos estados —solo cambia su color—, así que el
+borde no cuenta como señal no cromática. Contador arriba: `137 libres · 63 vendidos`. Sin nombres ni teléfonos.
 Server Component con `revalidate` corto; sin Realtime (no hace falta para difusión).
 
 ### 5.2 `/login` — magic link

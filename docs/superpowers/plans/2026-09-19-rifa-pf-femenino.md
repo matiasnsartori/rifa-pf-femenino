@@ -2042,6 +2042,12 @@ describe("NumberGrid", () => {
     render(<NumberGrid soldNumbers={[]} numbers={[3, 8]} />);
     expect(screen.getAllByRole("button")).toHaveLength(2);
     expect(screen.getByRole("button", { name: "Número 3, libre" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Número 8, libre" })).toBeInTheDocument();
+  });
+
+  it("labels the grid as a group for assistive tech", () => {
+    render(<NumberGrid soldNumbers={[]} numbers={[1]} />);
+    expect(screen.getByRole("group", { name: "Números de la rifa" })).toBeInTheDocument();
   });
 });
 ```
@@ -2117,7 +2123,7 @@ export function NumberGrid({ soldNumbers, numbers, onSelect }: NumberGridProps) 
 - [ ] **Step 4: Correr los tests y verificar que pasan**
 
 Run: `npm test -- components/`
-Expected: PASS, 8 tests.
+Expected: PASS, 9 tests.
 
 - [ ] **Step 5: Escribir la página pública**
 
@@ -2135,7 +2141,7 @@ export const revalidate = 10;
 
 export default async function HomePage() {
   const supabase = await createServerSupabase();
-  const { data } = await supabase.from("public_numbers").select("number");
+  const { data, error } = await supabase.from("public_numbers").select("number");
   const soldNumbers = (data ?? []).map((row) => row.number);
   const seller = await getCurrentSeller();
 
@@ -2145,12 +2151,21 @@ export default async function HomePage() {
       <main className="mx-auto flex w-full max-w-4xl flex-col gap-6 px-4 py-6">
         <div>
           <h1 className="font-display text-3xl uppercase tracking-wide">Rifa PF Femenino</h1>
-          <p className="mt-1 text-muted-foreground tabular-nums">
-            {TOTAL_NUMBERS - soldNumbers.length} libres · {soldNumbers.length} vendidos
-          </p>
+          {!error && (
+            <p className="mt-1 text-muted-foreground tabular-nums">
+              {TOTAL_NUMBERS - soldNumbers.length} libres · {soldNumbers.length} vendidos
+            </p>
+          )}
         </div>
         <InstallApp />
-        <NumberGrid soldNumbers={soldNumbers} />
+        {error ? (
+          <p role="alert" className="rounded-2xl border border-border bg-card p-4">
+            No pudimos cargar los números. Actualizá la página antes de vender: sin esta
+            información podés vender uno que ya está vendido.
+          </p>
+        ) : (
+          <NumberGrid soldNumbers={soldNumbers} />
+        )}
       </main>
     </>
   );
