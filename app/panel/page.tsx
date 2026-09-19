@@ -12,7 +12,7 @@ export default async function PanelPage() {
   if (!seller) redirect("/login");
 
   const supabase = await createServerSupabase();
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from("sales")
     .select("number, buyer_name, buyer_phone, seller_id, sold_at, sellers(display_name)")
     .order("number");
@@ -32,7 +32,14 @@ export default async function PanelPage() {
       <SiteHeader seller={seller} />
       <main className="mx-auto flex w-full max-w-4xl flex-col gap-4 px-4 py-6 pb-40">
         <h1 className="font-display text-3xl uppercase tracking-wide">Panel</h1>
-        <PanelBoard sales={sales} seller={seller} />
+        {error ? (
+          <p role="alert" className="rounded-2xl border border-border bg-card p-4">
+            No pudimos cargar las ventas. Actualizá la página antes de vender: sin esta información
+            no sabés qué números están tomados.
+          </p>
+        ) : (
+          <PanelBoard sales={sales} seller={seller} />
+        )}
       </main>
     </>
   );

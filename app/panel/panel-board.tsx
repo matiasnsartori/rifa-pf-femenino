@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { NumberGrid } from "@/components/number-grid";
 import { SaleDetail, type PanelSale } from "@/components/sale-detail";
@@ -22,6 +22,12 @@ export function PanelBoard({ sales, seller }: PanelBoardProps) {
   const [selected, setSelected] = useState<number | null>(null);
   const [mode, setMode] = useState<Mode>("detail");
   const [query, setQuery] = useState("");
+  const [actionError, setActionError] = useState<string | null>(null);
+  const sheetRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (selected !== null) sheetRef.current?.focus();
+  }, [selected]);
 
   useEffect(() => {
     const supabase = createBrowserSupabase();
@@ -50,18 +56,25 @@ export function PanelBoard({ sales, seller }: PanelBoardProps) {
     : undefined;
 
   function open(value: number) {
+    setActionError(null);
     setSelected(value);
     setMode(byNumber.has(value) ? "detail" : "create");
   }
 
   function close() {
+    setActionError(null);
     setSelected(null);
   }
 
   async function release() {
     if (selected === null) return;
     if (!window.confirm(`¿Liberar el número ${selected}? Se borra la venta.`)) return;
-    await releaseSale(selected);
+
+    const result = await releaseSale(selected);
+    if (!result.ok) {
+      setActionError(result.message ?? "No se pudo liberar el número.");
+      return;
+    }
     close();
   }
 
@@ -95,8 +108,54 @@ export function PanelBoard({ sales, seller }: PanelBoardProps) {
       )}
 
       {selected !== null && (
-        <div className="animate-rise fixed inset-x-0 bottom-0 z-10 rounded-t-3xl border-t border-border bg-card p-5 text-card-foreground shadow-2xl">
-          {mode === "create" && (
+        <div
+          ref={sheetRef}
+          role="dialog"
+          aria-modal="true"
+          aria-label={`Número ${selected}`}
+          tabIndex={-1}
+          onKeyDown={(event) => {
+            if (event.key === "Escape") close();
+          }}
+          className="animate-rise fixed inset-x-0 bottom-0 z-10 rounded-t-3xl border-t border-border bg-card p-5 text-card-foreground shadow-2xl focus-visible:outline-none"
+        >
+          {actionError && (
+            <p role="alert" className="mb-3 rounded-xl bg-muted p-3 text-sm text-muted-foreground">
+              {actionError}
+            </p>
+          )}
+
+          {mode !== "create" && !current && (
+            <div className="flex flex-col gap-3">
+              <p role="alert" className="text-sm">
+                El número {selected} fue liberado mientras lo mirabas.
+              </p>
+              <button
+                type="button"
+                onClick={close}
+                className="min-h-[44px] touch-manipulation rounded-xl border border-border px-4 font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              >
+                Cerrar
+              </button>
+            </div>
+          )}
+
+          {mode === "create" && current && (
+            <div className="flex flex-col gap-3">
+              <p role="alert" className="rounded-xl bg-muted p-3 text-sm text-muted-foreground">
+                Mientras cargabas, {current.sellerName} vendió el {current.number}. Elegí otro.
+              </p>
+              <SaleDetail
+                sale={current}
+                canEdit={seller.isAdmin || current.sellerId === seller.id}
+                onEdit={() => setMode("edit")}
+                onRelease={release}
+                onClose={close}
+              />
+            </div>
+          )}
+
+          {mode === "create" && !current && (
             <SaleForm
               saleNumber={selected}
               onSubmit={async (input) => {

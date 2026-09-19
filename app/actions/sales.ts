@@ -22,6 +22,17 @@ const NOT_A_SELLER: ActionResult = {
   message: "Tu cuenta no está habilitada para cargar ventas.",
 };
 
+async function sellerWhoTook(saleNumber: number): Promise<string | null> {
+  const supabase = await createServerSupabase();
+  const { data } = await supabase
+    .from("sales")
+    .select("sellers(display_name)")
+    .eq("number", saleNumber)
+    .maybeSingle();
+
+  return (data?.sellers as unknown as { display_name: string } | null)?.display_name ?? null;
+}
+
 function refreshViews() {
   revalidatePath("/");
   revalidatePath("/panel");
@@ -48,6 +59,15 @@ export async function createSale(input: SaleInput): Promise<ActionResult> {
   });
 
   const saleError = toSaleError(error, input.saleNumber);
+  if (saleError?.kind === "number-taken") {
+    const takenBy = await sellerWhoTook(input.saleNumber);
+    return {
+      ok: false,
+      message: takenBy
+        ? `El ${input.saleNumber} lo acaba de vender ${takenBy}. Elegí otro.`
+        : saleError.message,
+    };
+  }
   if (saleError) return { ok: false, message: saleError.message };
 
   refreshViews();
@@ -63,16 +83,20 @@ export async function updateSale(input: SaleInput): Promise<ActionResult> {
   }
 
   const supabase = await createServerSupabase();
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from("sales")
     .update({
       buyer_name: input.buyerName.trim(),
       buyer_phone: input.buyerPhone.trim() || null,
     })
-    .eq("number", input.saleNumber);
+    .eq("number", input.saleNumber)
+    .select("number");
 
   const saleError = toSaleError(error, input.saleNumber);
   if (saleError) return { ok: false, message: saleError.message };
+  if (!data?.length) {
+    return { ok: false, message: "No se pudo editar. Esa venta ya no es tuya o fue liberada." };
+  }
 
   refreshViews();
   return { ok: true };
@@ -83,10 +107,17 @@ export async function releaseSale(saleNumber: number): Promise<ActionResult> {
   if (!seller) return NOT_A_SELLER;
 
   const supabase = await createServerSupabase();
-  const { error } = await supabase.from("sales").delete().eq("number", saleNumber);
+  const { data, error } = await supabase
+    .from("sales")
+    .delete()
+    .eq("number", saleNumber)
+    .select("number");
 
   const saleError = toSaleError(error, saleNumber);
   if (saleError) return { ok: false, message: saleError.message };
+  if (!data?.length) {
+    return { ok: false, message: "No se pudo liberar. Esa venta ya no es tuya o fue liberada." };
+  }
 
   refreshViews();
   return { ok: true };
