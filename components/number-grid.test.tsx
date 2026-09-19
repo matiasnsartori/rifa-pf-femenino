@@ -20,5 +20,11 @@ describe("NumberGrid", () => {
     render(<NumberGrid soldNumbers={[]} numbers={[3, 8]} />);
     expect(screen.getAllByRole("button")).toHaveLength(2);
     expect(screen.getByRole("button", { name: "Número 3, libre" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Número 8, libre" })).toBeInTheDocument();
+  });
+
+  it("labels the grid as a group for assistive tech", () => {
+    render(<NumberGrid soldNumbers={[]} numbers={[1]} />);
+    expect(screen.getByRole("group", { name: "Números de la rifa" })).toBeInTheDocument();
   });
 });
