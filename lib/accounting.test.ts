@@ -49,6 +49,18 @@ describe("summarize", () => {
     expect(result.bySeller.map((row) => row.sellerId)).toEqual(["a", "b", "c"]);
   });
 
+  it("breaks ties by name when amounts are equal", () => {
+    const tiedSellers = [
+      { id: "z", displayName: "Zulema" },
+      { id: "y", displayName: "Alicia" },
+    ];
+    const result = summarize(tiedSellers, [
+      { number: 1, sellerId: "z" },
+      { number: 2, sellerId: "y" },
+    ]);
+    expect(result.bySeller.map((row) => row.sellerId)).toEqual(["y", "z"]);
+  });
+
   it("keeps each seller numbers sorted ascending", () => {
     const result = summarize(sellers, [
       { number: 30, sellerId: "a" },
