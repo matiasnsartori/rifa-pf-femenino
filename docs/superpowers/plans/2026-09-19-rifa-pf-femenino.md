@@ -2169,7 +2169,10 @@ curl -s "$NEXT_PUBLIC_SUPABASE_URL/rest/v1/sales?select=buyer_name" \
   -H "apikey: $NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY"
 ```
 
-Expected: `[]`.
+Expected: error `42501`, permiso denegado. Un `[]` también sería aceptable —significaría que RLS
+filtró todas las filas— pero desde el `revoke` de la Task 5 `anon` no tiene ningún permiso sobre
+`sales`, así que ni siquiera llega a evaluar policies. La garantía es más fuerte que la que pedía
+esta verificación originalmente.
 
 - [ ] **Step 7: Commit**
 
