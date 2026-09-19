@@ -123,7 +123,7 @@ Y cambiar `dev` y `build` para que usen Turbopack explícitamente:
 "build": "next build --turbopack"
 ```
 
-- [ ] **Step 2: Escribir el test que falla**
+- [ ] **Step 3: Escribir el test que falla**
 
 Crear `lib/raffle.test.ts`:
 
@@ -904,7 +904,29 @@ git commit -m "feat: esquema con rls y allowlist por email"
 
 Las policies son seguridad, no una convención. Un test que no las ejercite no está cubriendo nada: RLS no se puede verificar leyendo el SQL, porque el bug típico es una policy que *existe* y *no aplica*.
 
-- [ ] **Step 1: Crear la configuración de tests de integración**
+- [ ] **Step 1: Actualizar el seed con los tres admins**
+
+El seed de la Task 5 tenía un solo admin. El usuario confirmó tres. Reemplazar el contenido de `supabase/migrations/0002_seed_admin.sql`:
+
+```sql
+insert into public.sellers (email, display_name, is_admin)
+values
+  ('sartorinmatias@gmail.com', 'Matías', true),
+  ('sartori828@hotmail.com', 'Sartori', true),
+  ('sartoridbz@gmail.com', 'Sartori DBZ', true)
+on conflict (email) do update set is_admin = true;
+```
+
+Aplicar con `supabase db reset` y verificar:
+
+```bash
+psql "postgresql://postgres:postgres@127.0.0.1:54322/postgres" \
+  -c "select email, is_admin from public.sellers order by email;"
+```
+
+Expected: tres filas, las tres con `is_admin = t` y el email en minúscula.
+
+- [ ] **Step 2: Crear la configuración de tests de integración**
 
 Crear `vitest.rls.config.ts`:
 
@@ -929,7 +951,7 @@ En `package.json`, agregar a `scripts`:
 
 - [ ] **Step 2: Escribir el test que falla**
 
-`resetData()` no puede borrar todas las vendedoras: el trigger `guard_last_admin` aborta el statement al quedar cero admins, y entonces no borra ninguna. Por eso restaura primero al admin del seed y después borra solo los emails `@test.local`. Y como el admin del seed siempre existe, un admin de test nunca sería "el último" por sí solo: `makeSoleAdmin()` degrada al resto para que los dos tests de último-admin ejerciten el trigger de verdad.
+`resetData()` no puede borrar todas las vendedoras: el trigger `guard_last_admin` aborta el statement al quedar cero admins, y entonces no borra ninguna. Por eso restaura primero a **todos** los admins del seed y después borra solo los emails `@test.local`. Y como esos admins siempre existen, un admin de test nunca sería "el último" por sí solo: `makeSoleAdmin()` degrada al resto para que los dos tests de último-admin ejerciten el trigger de verdad.
 
 Crear `supabase/tests/rls.test.ts`:
 
@@ -951,7 +973,11 @@ const admin = createClient(url, serviceKey, { auth: { persistSession: false } })
 const anon = createClient(url, anonKey, { auth: { persistSession: false } });
 
 const PASSWORD = "rls-test-password";
-const SEED_ADMIN_EMAIL = "sartorinmatias@gmail.com";
+const SEED_ADMIN_EMAILS = [
+  "sartorinmatias@gmail.com",
+  "sartori828@hotmail.com",
+  "sartoridbz@gmail.com",
+];
 const createdUserIds: string[] = [];
 
 async function signInAs(email: string): Promise<SupabaseClient> {
@@ -971,7 +997,7 @@ async function signInAs(email: string): Promise<SupabaseClient> {
 
 async function resetData() {
   await admin.from("sales").delete().gte("number", 1);
-  await admin.from("sellers").update({ is_admin: true }).eq("email", SEED_ADMIN_EMAIL);
+  await admin.from("sellers").update({ is_admin: true }).in("email", SEED_ADMIN_EMAILS);
   await admin.from("sellers").delete().like("email", "%@test.local");
   for (const id of createdUserIds.splice(0)) {
     await admin.auth.admin.deleteUser(id);
@@ -1186,7 +1212,7 @@ describe("privilege escalation", () => {
 });
 ```
 
-- [ ] **Step 3: Correr el test y verificar que falla**
+- [ ] **Step 4: Correr el test y verificar que falla**
 
 ```bash
 npm install @supabase/supabase-js @supabase/ssr
@@ -1197,15 +1223,15 @@ npm run test:rls
 
 Expected: FAIL. Si el esquema de la Task 5 está bien aplicado los tests ya pasan; si alguno falla, el problema está en la migración, no en el test. Corregir `0001_init.sql` y correr `supabase db reset`.
 
-- [ ] **Step 4: Correr el test y verificar que pasa**
+- [ ] **Step 5: Correr el test y verificar que pasa**
 
 Run: `supabase db reset && npm run test:rls`
 Expected: PASS, 12 tests.
 
-- [ ] **Step 5: Commit**
+- [ ] **Step 6: Commit**
 
 ```bash
-git add vitest.rls.config.ts supabase/tests/rls.test.ts package.json package-lock.json
+git add supabase/migrations/0002_seed_admin.sql vitest.rls.config.ts supabase/tests/rls.test.ts package.json package-lock.json
 git commit -m "test: policies de rls contra supabase local"
 ```
 
