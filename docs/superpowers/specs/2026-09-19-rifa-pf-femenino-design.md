@@ -163,7 +163,8 @@ Es el escenario central de la app y se diseña explícitamente.
 1. Dos vendedoras ven el número 47 libre.
 2. Ambas envían el formulario.
 3. La primera inserta. La segunda recibe de Postgres el error **23505** (`unique_violation`).
-4. La app traduce ese código a un mensaje concreto: *"El 47 lo acaba de vender Ana. Elegí otro."*
+4. La app consulta quién quedó dueño del número y responde con el hecho completo:
+   *"El 47 lo acaba de vender Ana. Elegí otro."* Si esa consulta falla, cae a un mensaje genérico.
 5. La grilla de la segunda ya se actualizó sola por Realtime.
 
 El error 23505 no es una falla: es la base cumpliendo su función. El código nunca hace un
@@ -190,6 +191,8 @@ expone ningún dato. La barrera real es RLS, no esta pantalla.
 
 La misma grilla, interactiva y con Realtime.
 - Tocar un número **libre** → formulario: nombre del comprador (requerido) y teléfono (opcional).
+- Si otra vendedora se lleva ese número **mientras el formulario está abierto**, Realtime lo detecta
+  y el formulario se reemplaza por el detalle, con un aviso que nombra a quién lo vendió.
 - Tocar un número **vendido** → detalle: comprador, teléfono, quién lo vendió y cuándo.
   Editar o liberar solo si es propia o si sos admin.
 - Buscador por número y por nombre de comprador.

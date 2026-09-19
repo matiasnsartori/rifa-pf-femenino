@@ -2241,6 +2241,17 @@ const NOT_A_SELLER: ActionResult = {
   message: "Tu cuenta no está habilitada para cargar ventas.",
 };
 
+async function sellerWhoTook(saleNumber: number): Promise<string | null> {
+  const supabase = await createServerSupabase();
+  const { data } = await supabase
+    .from("sales")
+    .select("sellers(display_name)")
+    .eq("number", saleNumber)
+    .maybeSingle();
+
+  return (data?.sellers as unknown as { display_name: string } | null)?.display_name ?? null;
+}
+
 function refreshViews() {
   revalidatePath("/");
   revalidatePath("/panel");
@@ -2267,6 +2278,15 @@ export async function createSale(input: SaleInput): Promise<ActionResult> {
   });
 
   const saleError = toSaleError(error, input.saleNumber);
+  if (saleError?.kind === "number-taken") {
+    const takenBy = await sellerWhoTook(input.saleNumber);
+    return {
+      ok: false,
+      message: takenBy
+        ? `El ${input.saleNumber} lo acaba de vender ${takenBy}. Elegí otro.`
+        : saleError.message,
+    };
+  }
   if (saleError) return { ok: false, message: saleError.message };
 
   refreshViews();
@@ -2662,7 +2682,22 @@ export function PanelBoard({ sales, seller }: PanelBoardProps) {
 
       {selected !== null && (
         <div className="animate-rise fixed inset-x-0 bottom-0 z-10 rounded-t-3xl border-t border-border bg-card p-5 text-card-foreground shadow-2xl">
-          {mode === "create" && (
+          {mode === "create" && current && (
+            <div className="flex flex-col gap-3">
+              <p role="alert" className="rounded-xl bg-muted p-3 text-sm text-muted-foreground">
+                Mientras cargabas, {current.sellerName} vendió el {current.number}. Elegí otro.
+              </p>
+              <SaleDetail
+                sale={current}
+                canEdit={seller.isAdmin || current.sellerId === seller.id}
+                onEdit={() => setMode("edit")}
+                onRelease={release}
+                onClose={close}
+              />
+            </div>
+          )}
+
+          {mode === "create" && !current && (
             <SaleForm
               saleNumber={selected}
               onSubmit={async (input) => {
@@ -2752,6 +2787,11 @@ export default async function PanelPage() {
 
 Abrir `/panel` en dos ventanas del navegador, logueadas. Marcar un número en una.
 Expected: la otra lo muestra vendido en menos de dos segundos, sin refrescar.
+
+Probar el aviso de "te lo ganaron": abrir el formulario de un número libre, insertar ese mismo
+número desde otra sesión, y confirmar que el formulario se reemplaza por el detalle con el nombre
+de quien lo vendió. Después probar el choque al guardar y confirmar que el mensaje nombra a la
+vendedora en lugar del texto genérico.
 
 Probar el buscador: escribir `47` y después el nombre de una compradora cargada.
 Expected: la grilla se reduce a los números que coinciden; con texto sin coincidencias aparece el mensaje vacío.
