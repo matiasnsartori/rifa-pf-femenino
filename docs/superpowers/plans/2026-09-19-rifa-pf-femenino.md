@@ -2896,7 +2896,7 @@ git commit -m "feat: panel de ventas con realtime"
 Crear `components/accounting-table.test.tsx`:
 
 ```tsx
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { AccountingTable } from "./accounting-table";
 import { summarize } from "@/lib/accounting";
@@ -2923,10 +2923,15 @@ describe("AccountingTable", () => {
     expect(screen.getByText("4, 9")).toBeInTheDocument();
   });
 
-  it("shows a dash for a seller with no sales", () => {
+  it("shows a dash in the row of a seller with no sales", () => {
     const summary = summarize(sellers, [{ number: 1, sellerId: "a" }]);
     render(<AccountingTable summary={summary} />);
-    expect(screen.getByText("—")).toBeInTheDocument();
+
+    const beatriz = screen.getByRole("row", { name: /Beatriz/ });
+    expect(within(beatriz).getByText("—")).toBeInTheDocument();
+
+    const ana = screen.getByRole("row", { name: /Ana/ });
+    expect(within(ana).queryByText("—")).toBeNull();
   });
 });
 ```
@@ -2938,16 +2943,26 @@ Expected: FAIL — `Failed to resolve import "./accounting-table"`.
 
 - [ ] **Step 3: Escribir la implementación mínima**
 
-Crear `components/accounting-table.tsx`:
+Crear `lib/money.ts`, para que el formato de moneda se defina una sola vez y no derive entre
+pantallas:
 
-```tsx
-import type { AccountingSummary } from "@/lib/accounting";
-
-const money = new Intl.NumberFormat("es-AR", {
+```ts
+const formatter = new Intl.NumberFormat("es-AR", {
   style: "currency",
   currency: "ARS",
   maximumFractionDigits: 0,
 });
+
+export function formatARS(amount: number): string {
+  return formatter.format(amount);
+}
+```
+
+Crear `components/accounting-table.tsx`:
+
+```tsx
+import type { AccountingSummary } from "@/lib/accounting";
+import { formatARS } from "@/lib/money";
 
 export function AccountingTable({ summary }: { summary: AccountingSummary }) {
   return (
@@ -2967,7 +2982,7 @@ export function AccountingTable({ summary }: { summary: AccountingSummary }) {
             <tr key={row.sellerId} className="border-b border-border last:border-0">
               <th scope="row" className="px-4 py-3 font-semibold">{row.displayName}</th>
               <td className="px-4 py-3 text-right tabular-nums">{row.count}</td>
-              <td className="px-4 py-3 text-right tabular-nums">{money.format(row.amount)}</td>
+              <td className="px-4 py-3 text-right tabular-nums">{formatARS(row.amount)}</td>
               <td className="px-4 py-3 text-muted-foreground tabular-nums">
                 {row.numbers.length > 0 ? row.numbers.join(", ") : "—"}
               </td>
@@ -2985,6 +3000,10 @@ export function AccountingTable({ summary }: { summary: AccountingSummary }) {
 Run: `npm test -- components/accounting-table.test.tsx`
 Expected: PASS, 3 tests.
 
+El test del guion se asserta **dentro de la fila de Beatriz** y además comprueba que la fila de
+Ana no lo tiene. Un `getByText("—")` suelto encuentra el guion en cualquier lado del documento:
+pasaría igual si el componente lo pusiera en la fila equivocada.
+
 - [ ] **Step 5: Escribir la página**
 
 Crear `app/contaduria/page.tsx`:
@@ -2995,15 +3014,10 @@ import { AccountingTable } from "@/components/accounting-table";
 import { SiteHeader } from "@/components/site-header";
 import { summarize } from "@/lib/accounting";
 import { getCurrentSeller } from "@/lib/session";
+import { formatARS } from "@/lib/money";
 import { createServerSupabase } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
-
-const money = new Intl.NumberFormat("es-AR", {
-  style: "currency",
-  currency: "ARS",
-  maximumFractionDigits: 0,
-});
 
 export default async function AccountingPage() {
   const seller = await getCurrentSeller();
@@ -3029,11 +3043,11 @@ export default async function AccountingPage() {
         <dl className="grid grid-cols-2 gap-3">
           <div className="rounded-2xl border border-border bg-card p-4">
             <dt className="text-sm text-muted-foreground">Recaudado</dt>
-            <dd className="font-display text-2xl tabular-nums">{money.format(summary.collected)}</dd>
+            <dd className="font-display text-2xl tabular-nums">{formatARS(summary.collected)}</dd>
           </div>
           <div className="rounded-2xl border border-border bg-card p-4">
             <dt className="text-sm text-muted-foreground">Falta vender</dt>
-            <dd className="font-display text-2xl tabular-nums">{money.format(summary.pending)}</dd>
+            <dd className="font-display text-2xl tabular-nums">{formatARS(summary.pending)}</dd>
           </div>
         </dl>
 
