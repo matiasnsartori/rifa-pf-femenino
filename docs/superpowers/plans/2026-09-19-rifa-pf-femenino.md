@@ -3129,13 +3129,20 @@ export async function setAdmin(sellerId: string, isAdmin: boolean): Promise<Acti
   if (!seller?.isAdmin) return NOT_ADMIN;
 
   const supabase = await createServerSupabase();
-  const { error } = await supabase.from("sellers").update({ is_admin: isAdmin }).eq("id", sellerId);
+  const { data, error } = await supabase
+    .from("sellers")
+    .update({ is_admin: isAdmin })
+    .eq("id", sellerId)
+    .select("id");
 
   if (error) {
     return {
       ok: false,
       message: "No se pudo cambiar. No puede quedar la rifa sin ninguna admin.",
     };
+  }
+  if (!data?.length) {
+    return { ok: false, message: "No se pudo cambiar. Esa vendedora ya no existe." };
   }
 
   revalidatePath("/admin");
@@ -3147,7 +3154,11 @@ export async function removeSeller(sellerId: string): Promise<ActionResult> {
   if (!seller?.isAdmin) return NOT_ADMIN;
 
   const supabase = await createServerSupabase();
-  const { error } = await supabase.from("sellers").delete().eq("id", sellerId);
+  const { data, error } = await supabase
+    .from("sellers")
+    .delete()
+    .eq("id", sellerId)
+    .select("id");
 
   if (error?.code === "23503") {
     return { ok: false, message: "Tiene ventas cargadas. No se puede borrar." };
@@ -3155,11 +3166,19 @@ export async function removeSeller(sellerId: string): Promise<ActionResult> {
   if (error) {
     return { ok: false, message: "No se pudo borrar. No puede quedar la rifa sin ninguna admin." };
   }
+  if (!data?.length) {
+    return { ok: false, message: "No se pudo borrar. Esa vendedora ya no existe." };
+  }
 
   revalidatePath("/admin");
   return { ok: true };
 }
 ```
+
+Igual que en las acciones de ventas, el `.select("id")` es obligatorio: cuando RLS filtra la fila,
+PostgREST no devuelve error sino cero filas afectadas, y la acción informaría éxito sobre una
+escritura que no ocurrió. El trigger del último admin sí levanta excepción y cae por el camino del
+error; el que se escapa en silencio es el de RLS.
 
 - [ ] **Step 2: Escribir el test que falla**
 
@@ -3418,10 +3437,15 @@ export default async function AdminPage() {
   if (!seller.isAdmin) redirect("/panel");
 
   const supabase = await createServerSupabase();
-  const [{ data: sellerRows }, { data: saleRows }] = await Promise.all([
-    supabase.from("sellers").select("id, email, display_name, is_admin, user_id").order("display_name"),
-    supabase.from("sales").select("seller_id"),
-  ]);
+  const [{ data: sellerRows, error: sellersError }, { data: saleRows, error: salesError }] =
+    await Promise.all([
+      supabase
+        .from("sellers")
+        .select("id, email, display_name, is_admin, user_id")
+        .order("display_name"),
+      supabase.from("sales").select("seller_id"),
+    ]);
+  const loadFailed = Boolean(sellersError || salesError);
 
   const sellersWithSales = new Set((saleRows ?? []).map((row) => row.seller_id));
 
@@ -3439,7 +3463,14 @@ export default async function AdminPage() {
       <SiteHeader seller={seller} />
       <main className="mx-auto flex w-full max-w-2xl flex-col gap-6 px-4 py-6">
         <h1 className="font-display text-3xl uppercase tracking-wide">Vendedoras</h1>
-        <AdminBoard rows={rows} />
+        {loadFailed ? (
+          <p role="alert" className="rounded-2xl border border-border bg-card p-4">
+            No pudimos cargar las vendedoras. Actualizá la página antes de dar de alta o de baja a
+            alguien.
+          </p>
+        ) : (
+          <AdminBoard rows={rows} />
+        )}
       </main>
     </>
   );
