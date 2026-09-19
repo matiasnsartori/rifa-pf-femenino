@@ -3097,6 +3097,9 @@ const NOT_ADMIN: ActionResult = {
   message: "Solo una admin puede gestionar las vendedoras.",
 };
 
+const HAS_SALES = "23503";
+const LAST_ADMIN = "P0001";
+
 function looksLikeEmail(value: string) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
 }
@@ -3135,11 +3138,11 @@ export async function setAdmin(sellerId: string, isAdmin: boolean): Promise<Acti
     .eq("id", sellerId)
     .select("id");
 
+  if (error?.code === LAST_ADMIN) {
+    return { ok: false, message: "No puede quedar la rifa sin ninguna admin." };
+  }
   if (error) {
-    return {
-      ok: false,
-      message: "No se pudo cambiar. No puede quedar la rifa sin ninguna admin.",
-    };
+    return { ok: false, message: "No se pudo cambiar. Probá de nuevo en un momento." };
   }
   if (!data?.length) {
     return { ok: false, message: "No se pudo cambiar. Esa vendedora ya no existe." };
@@ -3160,11 +3163,14 @@ export async function removeSeller(sellerId: string): Promise<ActionResult> {
     .eq("id", sellerId)
     .select("id");
 
-  if (error?.code === "23503") {
+  if (error?.code === HAS_SALES) {
     return { ok: false, message: "Tiene ventas cargadas. No se puede borrar." };
   }
+  if (error?.code === LAST_ADMIN) {
+    return { ok: false, message: "No puede quedar la rifa sin ninguna admin." };
+  }
   if (error) {
-    return { ok: false, message: "No se pudo borrar. No puede quedar la rifa sin ninguna admin." };
+    return { ok: false, message: "No se pudo borrar. Probá de nuevo en un momento." };
   }
   if (!data?.length) {
     return { ok: false, message: "No se pudo borrar. Esa vendedora ya no existe." };
@@ -3185,7 +3191,7 @@ error; el que se escapa en silencio es el de RLS.
 Crear `components/sellers-table.test.tsx`:
 
 ```tsx
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { SellersTable, type AdminSellerRow } from "./sellers-table";
 
@@ -3221,9 +3227,14 @@ function renderTable(rows: AdminSellerRow[]) {
 }
 
 describe("SellersTable", () => {
-  it("flags who never logged in", () => {
+  it("flags who never logged in, on her own row", () => {
     renderTable([soleAdmin, neverLoggedIn]);
-    expect(screen.getByText("Nunca ingresó")).toBeInTheDocument();
+
+    const carla = screen.getByRole("listitem", { name: /Carla/ });
+    expect(within(carla).getByText("Nunca ingresó")).toBeInTheDocument();
+
+    const ana = screen.getByRole("listitem", { name: /Ana/ });
+    expect(within(ana).queryByText("Nunca ingresó")).toBeNull();
   });
 
   it("disables removing a seller with sales", () => {
@@ -3287,6 +3298,7 @@ export function SellersTable({ rows, onToggleAdmin, onRemove }: SellersTableProp
         return (
           <li
             key={row.id}
+            aria-label={row.displayName}
             className="flex flex-col gap-2 rounded-2xl border border-border bg-card p-4 text-card-foreground"
           >
             <div className="flex flex-wrap items-baseline gap-2">
@@ -3336,6 +3348,10 @@ export function SellersTable({ rows, onToggleAdmin, onRemove }: SellersTableProp
 
 Run: `npm test -- components/sellers-table.test.tsx`
 Expected: PASS, 5 tests.
+
+El aviso de "Nunca ingresó" se asserta **dentro de la fila de Carla** y se comprueba que la de Ana
+no lo tiene. Sin acotar, el test pasaría aunque el aviso apareciera en la vendedora equivocada. El
+`aria-label` en el `<li>` es lo que hace que la fila sea localizable por nombre.
 
 - [ ] **Step 6: Escribir la pantalla de admin**
 
