@@ -2359,8 +2359,23 @@ describe("SaleForm", () => {
     await userEvent.click(screen.getByRole("button", { name: "Guardar venta" }));
     expect(onSubmit).not.toHaveBeenCalled();
   });
+
+  it("does not submit a whitespace only buyer name", async () => {
+    const onSubmit = vi.fn();
+    render(<SaleForm saleNumber={47} onSubmit={onSubmit} onCancel={vi.fn()} />);
+
+    await userEvent.type(screen.getByLabelText("Nombre de quien compró"), "   ");
+    await userEvent.click(screen.getByRole("button", { name: "Guardar venta" }));
+
+    expect(onSubmit).not.toHaveBeenCalled();
+    expect(await screen.findByRole("alert")).toHaveTextContent("Cargá el nombre");
+  });
 });
 ```
+
+El test del nombre vacío se apoya en el atributo `required`, que jsdom respeta: **pasaría igual
+aunque se borrara la guarda del componente**. La guarda existe para el caso que `required` no
+cubre, un nombre de solo espacios, y ese es el que asserta el segundo test.
 
 - [ ] **Step 3: Correr el test y verificar que falla**
 
@@ -2542,7 +2557,7 @@ export function SaleDetail({ sale, canEdit, onEdit, onRelease, onClose }: SaleDe
 - [ ] **Step 5: Correr el test y verificar que pasa**
 
 Run: `npm test -- components/sale-form.test.tsx`
-Expected: PASS, 4 tests.
+Expected: PASS, 5 tests.
 
 - [ ] **Step 6: Escribir el tablero con Realtime**
 
