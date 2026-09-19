@@ -1,15 +1,19 @@
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
 
-const url = process.env.SUPABASE_URL ?? process.env.API_URL ?? "http://127.0.0.1:54321";
-const anonKey = process.env.SUPABASE_ANON_KEY ?? process.env.ANON_KEY;
-const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY ?? process.env.SERVICE_ROLE_KEY;
-
-if (!anonKey || !serviceKey) {
-  throw new Error(
-    'Faltan las claves locales. Exportalas con: eval "$(supabase status -o env | sed \'s/^/export /\')"',
-  );
+function requireEnv(...candidates: (string | undefined)[]): string {
+  const value = candidates.find(Boolean);
+  if (!value) {
+    throw new Error(
+      'Faltan las claves locales. Exportalas con: eval "$(supabase status -o env | sed \'s/^/export /\')"',
+    );
+  }
+  return value;
 }
+
+const url = process.env.SUPABASE_URL ?? process.env.API_URL ?? "http://127.0.0.1:54321";
+const anonKey = requireEnv(process.env.SUPABASE_ANON_KEY, process.env.ANON_KEY);
+const serviceKey = requireEnv(process.env.SUPABASE_SERVICE_ROLE_KEY, process.env.SERVICE_ROLE_KEY);
 
 const admin = createClient(url, serviceKey, { auth: { persistSession: false } });
 const anon = createClient(url, anonKey, { auth: { persistSession: false } });
