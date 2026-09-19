@@ -22,6 +22,9 @@
 - **Accesibilidad:** todo control interactivo mínimo 44x44px, `focus-visible` con `ring`, contraste WCAG AA (4.5:1 texto normal, 3:1 texto grande y bordes). Libre/vendido nunca se distinguen solo por color.
 - **Commits:** mensajes de hasta 8 palabras, conventional commits, sin atribución de IA.
 - **Nunca hacer `git push` sin pedirlo explícitamente.** Todos los commits quedan locales hasta que el usuario lo autorice.
+- `npm run lint` y `npm run typecheck` tienen que quedar limpios al cerrar cada task que toque
+  código. Un repo que convive con errores de lint enseña a ignorar el lint, y a los veinte ya
+  nadie lo lee.
 - Total de números: 200. Rango válido: 1..200.
 - La cantidad de vendedoras es variable. Ningún número de vendedoras aparece cableado en el código.
 
@@ -1774,17 +1777,18 @@ Si `magick` no está: `brew install imagemagick`.
 
 Crear `components/theme-toggle.tsx`:
 
+El ícono se elige con CSS (`dark:hidden` / `dark:inline`), no con estado. Así no hay `useEffect`
+ni bandera `mounted`: el servidor y el cliente renderizan exactamente el mismo HTML y la clase
+`dark` del `<html>` decide cuál se ve. Menos código, sin desajuste de hidratación, y sin disparar
+la regla `react-hooks/set-state-in-effect`.
+
 ```tsx
 "use client";
 
-import { useEffect, useState } from "react";
 import { useTheme } from "next-themes";
 
 export function ThemeToggle() {
   const { resolvedTheme, setTheme } = useTheme();
-  const [mounted, setMounted] = useState(false);
-
-  useEffect(() => setMounted(true), []);
 
   return (
     <button
@@ -1793,7 +1797,8 @@ export function ThemeToggle() {
       onClick={() => setTheme(resolvedTheme === "dark" ? "light" : "dark")}
       className="flex min-h-[44px] min-w-[44px] touch-manipulation items-center justify-center rounded-xl border border-border bg-card text-xl text-card-foreground transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
     >
-      <span aria-hidden="true">{mounted ? (resolvedTheme === "dark" ? "☀️" : "🌙") : "·"}</span>
+      <span aria-hidden="true" className="inline dark:hidden">🌙</span>
+      <span aria-hidden="true" className="hidden dark:inline">☀️</span>
     </button>
   );
 }
@@ -1941,8 +1946,8 @@ export function SiteHeader({ seller }: { seller: CurrentSeller | null }) {
 
 - [ ] **Step 6: Verificar build y tema**
 
-Run: `npm run build && npm run dev`
-Expected: build sin errores. En `http://localhost:3000/login`, el toggle cambia light/dark y el fondo acompaña.
+Run: `npm run lint && npm run typecheck && npm run build && npm run dev`
+Expected: lint y typecheck limpios, build sin errores. En `http://localhost:3000/login`, el toggle cambia light/dark y el fondo acompaña.
 
 Verificar el manifest:
 
