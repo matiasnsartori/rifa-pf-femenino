@@ -218,6 +218,46 @@ describe("sales policies", () => {
       .eq("number", 20);
     expect(error).toBeNull();
   });
+
+  it("blocks a plain seller from editing another seller's sale", async () => {
+    const otherSeller = await admin
+      .from("sellers")
+      .insert({ email: unique("otra"), display_name: "Otra" })
+      .select()
+      .single();
+    await admin
+      .from("sales")
+      .insert({ number: 21, buyer_name: "Original", seller_id: otherSeller.data!.id });
+
+    const email = unique("carla");
+    await admin.from("sellers").insert({ email, display_name: "Carla" });
+    const client = await signInAs(email);
+
+    await client.from("sales").update({ buyer_name: "Corregido" }).eq("number", 21);
+
+    const { data } = await admin.from("sales").select("buyer_name").eq("number", 21).single();
+    expect(data?.buyer_name).toBe("Original");
+  });
+
+  it("blocks a plain seller from deleting another seller's sale", async () => {
+    const otherSeller = await admin
+      .from("sellers")
+      .insert({ email: unique("otra"), display_name: "Otra" })
+      .select()
+      .single();
+    await admin
+      .from("sales")
+      .insert({ number: 22, buyer_name: "Original", seller_id: otherSeller.data!.id });
+
+    const email = unique("carla");
+    await admin.from("sellers").insert({ email, display_name: "Carla" });
+    const client = await signInAs(email);
+
+    await client.from("sales").delete().eq("number", 22);
+
+    const { data } = await admin.from("sales").select("number").eq("number", 22);
+    expect(data).toHaveLength(1);
+  });
 });
 
 describe("privilege escalation", () => {
