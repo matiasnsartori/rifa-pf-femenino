@@ -1,13 +1,13 @@
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
 
-const url = process.env.SUPABASE_URL ?? "http://127.0.0.1:54321";
-const anonKey = process.env.SUPABASE_ANON_KEY;
-const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+const url = process.env.SUPABASE_URL ?? process.env.API_URL ?? "http://127.0.0.1:54321";
+const anonKey = process.env.SUPABASE_ANON_KEY ?? process.env.ANON_KEY;
+const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY ?? process.env.SERVICE_ROLE_KEY;
 
 if (!anonKey || !serviceKey) {
   throw new Error(
-    "Faltan SUPABASE_ANON_KEY y SUPABASE_SERVICE_ROLE_KEY. Exportalas con: eval $(supabase status -o env)",
+    'Faltan las claves locales. Exportalas con: eval "$(supabase status -o env | sed \'s/^/export /\')"',
   );
 }
 
@@ -93,9 +93,25 @@ describe("public exposure", () => {
   });
 
   it("does not let anon read the sales table", async () => {
+    const seller = await admin
+      .from("sellers")
+      .insert({ email: unique("ana"), display_name: "Ana" })
+      .select()
+      .single();
+    await admin.from("sales").insert({
+      number: 3,
+      buyer_name: "Dato Personal",
+      buyer_phone: "1155667788",
+      seller_id: seller.data!.id,
+    });
+
     const { data, error } = await anon.from("sales").select("buyer_name");
+
     expect(data ?? []).toEqual([]);
     expect(error === null || error.code === "42501").toBe(true);
+
+    const { data: stillThere } = await admin.from("sales").select("buyer_name").eq("number", 3);
+    expect(stillThere).toHaveLength(1);
   });
 });
 
