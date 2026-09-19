@@ -40,4 +40,15 @@ describe("SaleForm", () => {
     await userEvent.click(screen.getByRole("button", { name: "Guardar venta" }));
     expect(onSubmit).not.toHaveBeenCalled();
   });
+
+  it("does not submit a whitespace only buyer name", async () => {
+    const onSubmit = vi.fn();
+    render(<SaleForm saleNumber={47} onSubmit={onSubmit} onCancel={vi.fn()} />);
+
+    await userEvent.type(screen.getByLabelText("Nombre de quien compró"), "   ");
+    await userEvent.click(screen.getByRole("button", { name: "Guardar venta" }));
+
+    expect(onSubmit).not.toHaveBeenCalled();
+    expect(await screen.findByRole("alert")).toHaveTextContent("Cargá el nombre");
+  });
 });
