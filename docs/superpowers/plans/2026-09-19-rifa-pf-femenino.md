@@ -6,7 +6,7 @@
 
 **Architecture:** Next 16 App Router sobre Supabase. La unicidad del número la garantiza la PRIMARY KEY de `sales`, no el cliente. La sincronización entre dispositivos es Supabase Realtime. La autorización es RLS basada en una allowlist por email (`sellers`), no en el rol `authenticated`.
 
-**Tech Stack:** Next 16.3.5, React 19.2.8, Tailwind 4, TypeScript 5, `@supabase/ssr`, `next-themes`, Vitest 4, Supabase CLI.
+**Tech Stack:** Next 16.3.5, React 19.2.8, Tailwind 4, TypeScript 5, `@supabase/ssr`, `next-themes`, Vitest 5, Supabase CLI.
 
 **Spec:** `docs/superpowers/specs/2026-09-19-rifa-pf-femenino-design.md`
 
@@ -669,6 +669,8 @@ git commit -m "feat: reglas de baja y ultimo admin"
 
 Nota de nombres: la función se llama `is_raffle_admin()`, **no** `is_admin()`. Dentro de una policy sobre `sellers`, el identificador `is_admin` se resuelve primero como la columna de la tabla, no como la función. Ese choque es silencioso y da permisos mal evaluados.
 
+Nota sobre los `revoke`: Supabase concede por default (`pg_default_acl`) permisos completos de CRUD a `anon` y `authenticated` sobre **cada relación nueva** del esquema `public`, incluidas las vistas. Un `grant select` encima de eso no restringe nada: es un no-op sobre un permiso más amplio que ya existe. Y `public_numbers` es una vista de una sola tabla sin joins ni agregados, así que Postgres la trata como **actualizable y borrable automáticamente**; con `security_invoker = off` ese DML corre como el dueño de la vista (`postgres`, que tiene `rolbypassrls`). Sin el `revoke` explícito, cualquiera con la anon key —que viaja en el cliente— puede `DELETE FROM public_numbers` y borrar ventas salteándose RLS por completo. El `revoke` no es defensa en profundidad: es lo único que cierra ese agujero.
+
 Nota sobre el email: se guarda como `text` normalizado en minúsculas y sin espacios, con un trigger que lo fuerza y un índice único. No se usa `citext` para no depender de una extensión.
 
 - [ ] **Step 1: Inicializar Supabase local**
@@ -844,7 +846,11 @@ create view public.public_numbers
 with (security_invoker = off)
 as select number from public.sales;
 
+revoke all on public.public_numbers from anon, authenticated;
 grant select on public.public_numbers to anon, authenticated;
+
+revoke all on public.sellers from anon;
+revoke all on public.sales from anon;
 
 alter publication supabase_realtime add table public.sales;
 ```
@@ -857,9 +863,14 @@ Crear `supabase/migrations/0002_seed_admin.sql`:
 
 ```sql
 insert into public.sellers (email, display_name, is_admin)
-values ('sartorinmatias@gmail.com', 'Matías', true)
+values
+  ('sartorinmatias@gmail.com', 'Matías', true),
+  ('sartori828@hotmail.com', 'Sartori', true),
+  ('sartoridbz@gmail.com', 'Sartori DBZ', true)
 on conflict (email) do update set is_admin = true;
 ```
+
+Los mails van en minúscula: el trigger `sellers_normalize_email` los bajaría igual, pero el índice único es sobre el valor guardado y la fuente se lee mejor consistente.
 
 - [ ] **Step 4: Aplicar las migraciones y verificar**
 
@@ -979,6 +990,22 @@ beforeEach(resetData);
 afterAll(resetData);
 
 describe("public exposure", () => {
+  it("does not let anon delete through the public view", async () => {
+    const seller = await admin
+      .from("sellers")
+      .insert({ email: unique("ana"), display_name: "Ana", is_admin: false })
+      .select()
+      .single();
+    await admin
+      .from("sales")
+      .insert({ number: 99, buyer_name: "Compradora", seller_id: seller.data!.id });
+
+    await anon.from("public_numbers").delete().eq("number", 99);
+
+    const { data } = await admin.from("sales").select("number").eq("number", 99);
+    expect(data).toHaveLength(1);
+  });
+
   it("lets anon read the numbers view", async () => {
     const seller = await admin
       .from("sellers")
@@ -1173,7 +1200,7 @@ Expected: FAIL. Si el esquema de la Task 5 está bien aplicado los tests ya pasa
 - [ ] **Step 4: Correr el test y verificar que pasa**
 
 Run: `supabase db reset && npm run test:rls`
-Expected: PASS, 11 tests.
+Expected: PASS, 12 tests.
 
 - [ ] **Step 5: Commit**
 
@@ -1459,7 +1486,7 @@ export async function GET(request: NextRequest) {
 npm run dev
 ```
 
-Abrir `http://localhost:3000/login`, ingresar `sartorinmatias@gmail.com` (el admin del seed), y abrir `http://127.0.0.1:54324` (Inbucket, el buzón local de Supabase) para hacer click en el link.
+Abrir `http://localhost:3000/login`, ingresar `sartorinmatias@gmail.com` (uno de los admins del seed), y abrir `http://127.0.0.1:54324` (Inbucket, el buzón local de Supabase) para hacer click en el link.
 
 Expected: redirige a `/panel`. Verificar que el trigger ató la cuenta:
 
@@ -3213,7 +3240,7 @@ Run: `npm test && npm run typecheck && npm run build`
 Expected: todos los tests unitarios pasan, sin errores de tipos, build exitoso.
 
 Run: `supabase db reset && npm run test:rls`
-Expected: PASS, 11 tests.
+Expected: PASS, 12 tests.
 
 - [ ] **Step 8: Commit**
 

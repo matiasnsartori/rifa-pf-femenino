@@ -93,7 +93,12 @@ Solo existen filas para los números **vendidos**. Los libres son los que no est
 create view public_numbers
 with (security_invoker = off)
 as select number from sales;
+
+revoke all on public_numbers from anon, authenticated;
+grant select on public_numbers to anon, authenticated;
 ```
+
+El `revoke` es obligatorio, no cosmético. Supabase concede CRUD completo a `anon` sobre cada relación nueva de `public`; la vista es automáticamente actualizable por ser de una sola tabla; y `security_invoker = off` hace que ese DML corra como el dueño, que saltea RLS. Sin el `revoke`, cualquiera con la anon key borra ventas.
 
 `security_invoker = off` es deliberado: la vista corre con los permisos de su dueño y por eso
 puede leer `sales` aunque `anon` no tenga acceso a la tabla. Es el único punto del sistema donde
@@ -284,7 +289,7 @@ Los tests de RLS corren contra una Supabase local (`supabase start`) en `supabas
 | Borrar una venta por error | `releaseSale` pide confirmación; solo la dueña o un admin. Sin papelera: para 200 números, recargar el dato es más barato que mantener soft-delete. |
 | Free tier de Supabase queda en 2/2 proyectos | Un proyecto más requiere pausar o borrar otro, o pasar a Pro. |
 | Alta de una vendedora con el email mal escrito | Queda una fila sin `user_id` y la persona no entra. El admin ve "nunca ingresó" en `/admin`, corrige el email y el trigger ata la cuenta en el siguiente login. |
-| El primer admin | No puede crearse desde la app: se inserta una vez en la migración de seed. A partir de ahí todo se gestiona desde `/admin`. |
+| Los admins iniciales | No pueden crearse desde la app: se insertan una vez en la migración de seed (tres mails). A partir de ahí todo se gestiona desde `/admin`. |
 
 ## 10. Fuera de alcance
 
