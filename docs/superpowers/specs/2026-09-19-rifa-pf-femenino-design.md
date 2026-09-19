@@ -50,7 +50,7 @@ esa persona se loguee por primera vez.
 | Columna | Tipo | Notas |
 |---------|------|-------|
 | `id` | `uuid` PK `default gen_random_uuid()` | Identidad propia, independiente de `auth.users` |
-| `email` | `citext not null unique` | Clave de la allowlist. `citext` porque los mails no distinguen mayúsculas |
+| `email` | `text not null unique` | Clave de la allowlist. Se normaliza a minúsculas y sin espacios con un trigger, en vez de depender de la extensión `citext` |
 | `display_name` | `text not null` | Nombre que se muestra en la app |
 | `is_admin` | `boolean not null default false` | Puede corregir ventas ajenas y gestionar la allowlist |
 | `user_id` | `uuid unique references auth.users(id) on delete set null` | Nullable. Se completa solo, al primer login |
@@ -231,7 +231,9 @@ lib/
   errors.ts             Traducción de códigos Postgres a mensajes
   accounting.ts         Cálculo de totales por vendedora (función pura)
   sellers.ts            Reglas de baja y de último admin (funciones puras)
-  supabase/{client,server,middleware}.ts
+  session.ts            getCurrentSeller() para Server Components
+  supabase/{client,server,proxy}.ts
+proxy.ts                En Next 16 el archivo es `proxy.ts`, no `middleware.ts`
 supabase/migrations/
   0001_init.sql         Tablas, vista, funciones, triggers, RLS, Realtime
 ```
