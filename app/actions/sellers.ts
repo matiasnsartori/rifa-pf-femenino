@@ -10,6 +10,11 @@ const NOT_ADMIN: ActionResult = {
   message: "Solo una admin puede gestionar las vendedoras.",
 };
 
+const UNAVAILABLE: ActionResult = {
+  ok: false,
+  message: "No pudimos verificar tu cuenta. Probá de nuevo en un momento.",
+};
+
 const HAS_SALES = "23503";
 const LAST_ADMIN = "P0001";
 
@@ -21,8 +26,9 @@ export async function addSeller(input: {
   email: string;
   displayName: string;
 }): Promise<ActionResult> {
-  const seller = await getCurrentSeller();
-  if (!seller?.isAdmin) return NOT_ADMIN;
+  const lookup = await getCurrentSeller();
+  if (lookup.status === "unavailable") return UNAVAILABLE;
+  if (lookup.status === "not-seller" || !lookup.seller.isAdmin) return NOT_ADMIN;
 
   const email = input.email.trim().toLowerCase();
   if (!looksLikeEmail(email)) return { ok: false, message: "Ese email no parece válido." };
@@ -41,8 +47,9 @@ export async function addSeller(input: {
 }
 
 export async function setAdmin(sellerId: string, isAdmin: boolean): Promise<ActionResult> {
-  const seller = await getCurrentSeller();
-  if (!seller?.isAdmin) return NOT_ADMIN;
+  const lookup = await getCurrentSeller();
+  if (lookup.status === "unavailable") return UNAVAILABLE;
+  if (lookup.status === "not-seller" || !lookup.seller.isAdmin) return NOT_ADMIN;
 
   const supabase = await createServerSupabase();
   const { data, error } = await supabase
@@ -66,8 +73,9 @@ export async function setAdmin(sellerId: string, isAdmin: boolean): Promise<Acti
 }
 
 export async function removeSeller(sellerId: string): Promise<ActionResult> {
-  const seller = await getCurrentSeller();
-  if (!seller?.isAdmin) return NOT_ADMIN;
+  const lookup = await getCurrentSeller();
+  if (lookup.status === "unavailable") return UNAVAILABLE;
+  if (lookup.status === "not-seller" || !lookup.seller.isAdmin) return NOT_ADMIN;
 
   const supabase = await createServerSupabase();
   const { data, error } = await supabase

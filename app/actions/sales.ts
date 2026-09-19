@@ -22,6 +22,11 @@ const NOT_A_SELLER: ActionResult = {
   message: "Tu cuenta no está habilitada para cargar ventas.",
 };
 
+const UNAVAILABLE: ActionResult = {
+  ok: false,
+  message: "No pudimos verificar tu cuenta. Probá de nuevo en un momento.",
+};
+
 async function sellerWhoTook(saleNumber: number): Promise<string | null> {
   const supabase = await createServerSupabase();
   const { data } = await supabase
@@ -40,8 +45,10 @@ function refreshViews() {
 }
 
 export async function createSale(input: SaleInput): Promise<ActionResult> {
-  const seller = await getCurrentSeller();
-  if (!seller) return NOT_A_SELLER;
+  const lookup = await getCurrentSeller();
+  if (lookup.status === "unavailable") return UNAVAILABLE;
+  if (lookup.status === "not-seller") return NOT_A_SELLER;
+  const seller = lookup.seller;
 
   if (!isValidNumber(input.saleNumber)) {
     return { ok: false, message: "Ese número no existe en la rifa." };
@@ -75,8 +82,9 @@ export async function createSale(input: SaleInput): Promise<ActionResult> {
 }
 
 export async function updateSale(input: SaleInput): Promise<ActionResult> {
-  const seller = await getCurrentSeller();
-  if (!seller) return NOT_A_SELLER;
+  const lookup = await getCurrentSeller();
+  if (lookup.status === "unavailable") return UNAVAILABLE;
+  if (lookup.status === "not-seller") return NOT_A_SELLER;
 
   if (!input.buyerName.trim()) {
     return { ok: false, message: "Cargá el nombre de quien compró." };
@@ -103,8 +111,9 @@ export async function updateSale(input: SaleInput): Promise<ActionResult> {
 }
 
 export async function releaseSale(saleNumber: number): Promise<ActionResult> {
-  const seller = await getCurrentSeller();
-  if (!seller) return NOT_A_SELLER;
+  const lookup = await getCurrentSeller();
+  if (lookup.status === "unavailable") return UNAVAILABLE;
+  if (lookup.status === "not-seller") return NOT_A_SELLER;
 
   const supabase = await createServerSupabase();
   const { data, error } = await supabase

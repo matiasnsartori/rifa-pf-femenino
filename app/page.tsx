@@ -11,7 +11,8 @@ export default async function HomePage() {
   const supabase = await createServerSupabase();
   const { data, error } = await supabase.from("public_numbers").select("number");
   const soldNumbers = (data ?? []).map((row) => row.number);
-  const seller = await getCurrentSeller();
+  const lookup = await getCurrentSeller();
+  const seller = lookup.status === "seller" ? lookup.seller : null;
 
   return (
     <>
