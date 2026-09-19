@@ -27,6 +27,7 @@ export function SellersTable({ rows, onToggleAdmin, onRemove }: SellersTableProp
         return (
           <li
             key={row.id}
+            aria-label={row.displayName}
             className="flex flex-col gap-2 rounded-2xl border border-border bg-card p-4 text-card-foreground"
           >
             <div className="flex flex-wrap items-baseline gap-2">

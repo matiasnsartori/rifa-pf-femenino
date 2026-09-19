@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { SellersTable, type AdminSellerRow } from "./sellers-table";
 
@@ -34,9 +34,14 @@ function renderTable(rows: AdminSellerRow[]) {
 }
 
 describe("SellersTable", () => {
-  it("flags who never logged in", () => {
+  it("flags who never logged in, on her own row", () => {
     renderTable([soleAdmin, neverLoggedIn]);
-    expect(screen.getByText("Nunca ingresó")).toBeInTheDocument();
+
+    const carla = screen.getByRole("listitem", { name: /Carla/ });
+    expect(within(carla).getByText("Nunca ingresó")).toBeInTheDocument();
+
+    const ana = screen.getByRole("listitem", { name: /Ana/ });
+    expect(within(ana).queryByText("Nunca ingresó")).toBeNull();
   });
 
   it("disables removing a seller with sales", () => {

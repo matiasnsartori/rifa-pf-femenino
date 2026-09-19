@@ -10,6 +10,9 @@ const NOT_ADMIN: ActionResult = {
   message: "Solo una admin puede gestionar las vendedoras.",
 };
 
+const HAS_SALES = "23503";
+const LAST_ADMIN = "P0001";
+
 function looksLikeEmail(value: string) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
 }
@@ -48,11 +51,11 @@ export async function setAdmin(sellerId: string, isAdmin: boolean): Promise<Acti
     .eq("id", sellerId)
     .select("id");
 
+  if (error?.code === LAST_ADMIN) {
+    return { ok: false, message: "No puede quedar la rifa sin ninguna admin." };
+  }
   if (error) {
-    return {
-      ok: false,
-      message: "No se pudo cambiar. No puede quedar la rifa sin ninguna admin.",
-    };
+    return { ok: false, message: "No se pudo cambiar. Probá de nuevo en un momento." };
   }
   if (!data?.length) {
     return { ok: false, message: "No se pudo cambiar. Esa vendedora ya no existe." };
@@ -73,11 +76,14 @@ export async function removeSeller(sellerId: string): Promise<ActionResult> {
     .eq("id", sellerId)
     .select("id");
 
-  if (error?.code === "23503") {
+  if (error?.code === HAS_SALES) {
     return { ok: false, message: "Tiene ventas cargadas. No se puede borrar." };
   }
+  if (error?.code === LAST_ADMIN) {
+    return { ok: false, message: "No puede quedar la rifa sin ninguna admin." };
+  }
   if (error) {
-    return { ok: false, message: "No se pudo borrar. No puede quedar la rifa sin ninguna admin." };
+    return { ok: false, message: "No se pudo borrar. Probá de nuevo en un momento." };
   }
   if (!data?.length) {
     return { ok: false, message: "No se pudo borrar. Esa vendedora ya no existe." };
