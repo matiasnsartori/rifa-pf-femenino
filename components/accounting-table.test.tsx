@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { AccountingTable } from "./accounting-table";
 import { summarize } from "@/lib/accounting";
@@ -25,9 +25,14 @@ describe("AccountingTable", () => {
     expect(screen.getByText("4, 9")).toBeInTheDocument();
   });
 
-  it("shows a dash for a seller with no sales", () => {
+  it("shows a dash in the row of a seller with no sales", () => {
     const summary = summarize(sellers, [{ number: 1, sellerId: "a" }]);
     render(<AccountingTable summary={summary} />);
-    expect(screen.getByText("—")).toBeInTheDocument();
+
+    const beatriz = screen.getByRole("row", { name: /Beatriz/ });
+    expect(within(beatriz).getByText("—")).toBeInTheDocument();
+
+    const ana = screen.getByRole("row", { name: /Ana/ });
+    expect(within(ana).queryByText("—")).toBeNull();
   });
 });

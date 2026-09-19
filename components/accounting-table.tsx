@@ -1,10 +1,5 @@
 import type { AccountingSummary } from "@/lib/accounting";
-
-const money = new Intl.NumberFormat("es-AR", {
-  style: "currency",
-  currency: "ARS",
-  maximumFractionDigits: 0,
-});
+import { formatARS } from "@/lib/money";
 
 export function AccountingTable({ summary }: { summary: AccountingSummary }) {
   return (
@@ -24,7 +19,7 @@ export function AccountingTable({ summary }: { summary: AccountingSummary }) {
             <tr key={row.sellerId} className="border-b border-border last:border-0">
               <th scope="row" className="px-4 py-3 font-semibold">{row.displayName}</th>
               <td className="px-4 py-3 text-right tabular-nums">{row.count}</td>
-              <td className="px-4 py-3 text-right tabular-nums">{money.format(row.amount)}</td>
+              <td className="px-4 py-3 text-right tabular-nums">{formatARS(row.amount)}</td>
               <td className="px-4 py-3 text-muted-foreground tabular-nums">
                 {row.numbers.length > 0 ? row.numbers.join(", ") : "—"}
               </td>

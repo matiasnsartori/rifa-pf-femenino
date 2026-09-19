@@ -2,16 +2,11 @@ import { redirect } from "next/navigation";
 import { AccountingTable } from "@/components/accounting-table";
 import { SiteHeader } from "@/components/site-header";
 import { summarize } from "@/lib/accounting";
+import { formatARS } from "@/lib/money";
 import { getCurrentSeller } from "@/lib/session";
 import { createServerSupabase } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
-
-const money = new Intl.NumberFormat("es-AR", {
-  style: "currency",
-  currency: "ARS",
-  maximumFractionDigits: 0,
-});
 
 export default async function AccountingPage() {
   const seller = await getCurrentSeller();
@@ -48,11 +43,11 @@ export default async function AccountingPage() {
             <dl className="grid grid-cols-2 gap-3">
               <div className="rounded-2xl border border-border bg-card p-4">
                 <dt className="text-sm text-muted-foreground">Recaudado</dt>
-                <dd className="font-display text-2xl tabular-nums">{money.format(summary.collected)}</dd>
+                <dd className="font-display text-2xl tabular-nums">{formatARS(summary.collected)}</dd>
               </div>
               <div className="rounded-2xl border border-border bg-card p-4">
                 <dt className="text-sm text-muted-foreground">Falta vender</dt>
-                <dd className="font-display text-2xl tabular-nums">{money.format(summary.pending)}</dd>
+                <dd className="font-display text-2xl tabular-nums">{formatARS(summary.pending)}</dd>
               </div>
             </dl>
 
