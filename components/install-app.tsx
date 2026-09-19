@@ -28,6 +28,7 @@ export function InstallApp() {
       (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
 
     if (ios) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- platform capability read on mount
       setIsIOS(true);
       setShow(true);
       return;
