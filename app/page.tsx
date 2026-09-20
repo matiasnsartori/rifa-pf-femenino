@@ -1,5 +1,6 @@
 import { NumberGrid } from "@/components/number-grid";
 import { InstallApp } from "@/components/install-app";
+import { LoginCta } from "@/components/login-cta";
 import { SiteHeader } from "@/components/site-header";
 import { getCurrentSeller } from "@/lib/session";
 import { createServerSupabase } from "@/lib/supabase/server";
@@ -27,6 +28,7 @@ export default async function HomePage() {
           )}
         </div>
         <InstallApp />
+        <LoginCta signedIn={seller !== null} />
         {error ? (
           <p role="alert" className="rounded-2xl border border-border bg-card p-4">
             No pudimos cargar los números. Actualizá la página antes de vender: sin esta
