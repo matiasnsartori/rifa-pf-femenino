@@ -131,6 +131,25 @@ describe("allowlist", () => {
     expect(row?.user_id).toBe(user.user?.id);
   });
 
+  it("links an existing account when the seller row is added afterwards", async () => {
+    const email = unique("curiosa");
+    const created = await admin.auth.admin.createUser({
+      email,
+      password: PASSWORD,
+      email_confirm: true,
+    });
+    if (created.error) throw created.error;
+    createdUserIds.push(created.data.user.id);
+
+    const { data: row } = await admin
+      .from("sellers")
+      .insert({ email, display_name: "Curiosa" })
+      .select("user_id")
+      .single();
+
+    expect(row?.user_id).toBe(created.data.user.id);
+  });
+
   it("hides sales from an authenticated user outside the allowlist", async () => {
     const owner = await admin
       .from("sellers")
