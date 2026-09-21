@@ -20,19 +20,28 @@ export default async function HomePage() {
       <SiteHeader seller={seller} />
       <main className="mx-auto flex w-full max-w-4xl flex-col gap-6 px-4 py-6">
         <div>
-          <h1 className="font-display text-3xl uppercase tracking-wide">Rifa PF Femenino</h1>
+          <h1 className="font-display text-3xl uppercase tracking-wide">
+            Rifa PF Femenino
+          </h1>
+          <span className="text-muted-foreground">
+            Alias: Rifa.pf - MercadoPago Martina copperi
+          </span>
           {!error && (
             <p className="mt-1 text-muted-foreground tabular-nums">
-              {TOTAL_NUMBERS - soldNumbers.length} libres · {soldNumbers.length} vendidos
+              {TOTAL_NUMBERS - soldNumbers.length} libres · {soldNumbers.length}{" "}
+              vendidos
             </p>
           )}
         </div>
         <InstallApp />
         <LoginCta signedIn={seller !== null} />
         {error ? (
-          <p role="alert" className="rounded-2xl border border-border bg-card p-4">
-            No pudimos cargar los números. Actualizá la página antes de vender: sin esta
-            información podés vender uno que ya está vendido.
+          <p
+            role="alert"
+            className="rounded-2xl border border-border bg-card p-4"
+          >
+            No pudimos cargar los números. Actualizá la página antes de vender:
+            sin esta información podés vender uno que ya está vendido.
           </p>
         ) : (
           <NumberGrid soldNumbers={soldNumbers} />
