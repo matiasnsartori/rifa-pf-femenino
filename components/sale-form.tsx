@@ -29,6 +29,10 @@ export function SaleForm({
       setError("Cargá el nombre de quien compró.");
       return;
     }
+    if (!buyerPhone.trim()) {
+      setError("Cargá el teléfono de quien compró.");
+      return;
+    }
     setError(null);
     setSaving(true);
 
@@ -58,7 +62,7 @@ export function SaleForm({
       />
 
       <label htmlFor="buyer-phone" className="text-sm font-semibold">
-        Teléfono (opcional)
+        Teléfono
       </label>
       <input
         id="buyer-phone"
@@ -70,7 +74,10 @@ export function SaleForm({
       />
 
       {error && (
-        <p role="alert" className="rounded-xl bg-muted p-3 text-sm text-muted-foreground">
+        <p
+          role="alert"
+          className="rounded-xl bg-muted p-3 text-sm text-muted-foreground"
+        >
           {error}
         </p>
       )}
